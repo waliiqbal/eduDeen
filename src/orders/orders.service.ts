@@ -89,7 +89,8 @@ export class OrdersService {
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
             }
-            throw new BadRequestException('Error creating order');
+            console.log("❌ ORDER CREATE ERROR:", error);
+            throw error;
         }
     }
 

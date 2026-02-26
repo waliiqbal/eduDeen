@@ -17,6 +17,16 @@ export class DatabaseService {
     private orderModel: Model<schema.OrderDocument>,
     @InjectModel(schema.User.name)
     private cartModel: Model<schema.CartDocument>,
+    @InjectModel(schema.User.name)
+    private addressModel: Model<schema.AddressDocument>,
+    @InjectModel(schema.User.name)
+    private otpModel: Model<schema.OtpDocument>,
+    @InjectModel(schema.User.name)
+    private bannerModel: Model<schema.BannerDocument>,
+    @InjectModel(schema.User.name)
+    private faqModel: Model<schema.FaqDocument>,
+    @InjectModel(schema.User.name)
+    private refundModel: Model<schema.RefundRequestDocument>,
   ) { }
   get repositories() {
     return {
@@ -25,6 +35,11 @@ export class DatabaseService {
       productModel: this.productModel,
       orderModel: this.orderModel,
       cartModel: this.cartModel,
+      addressModel: this.addressModel,
+      otpModel: this.otpModel,
+      bannerModel: this.bannerModel,
+      faqModel: this.faqModel,
+      refundModel: this.refundModel,
     };
   }
 }

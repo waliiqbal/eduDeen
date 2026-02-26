@@ -6,13 +6,15 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
-import { GoogleStrategy } from './strategies/google.strategy';
+// import { GoogleStrategy } from './strategies/google.strategy';
 import { User, UserSchema } from '../users/schemas/user.schema';
-// ✅ ADDED: Import TokenBlacklist
 import { TokenBlacklist, TokenBlacklistSchema } from './schemas/token-blacklist.schema';
+import { AppModule } from 'src/app.module';
+import { OtpModule } from 'src/otp/otp.module';
 
 @Module({
     imports: [
+        OtpModule,
         PassportModule,
         JwtModule.register({
             secret: process.env.JWT_SECRET,
@@ -27,7 +29,6 @@ import { TokenBlacklist, TokenBlacklistSchema } from './schemas/token-blacklist.
         AuthService,
         JwtStrategy,
         JwtRefreshStrategy,
-        GoogleStrategy,
     ],
 })
 export class AuthModule { }

@@ -51,12 +51,16 @@ export class User {
 
     @Prop({ default: null })
     appleId?: string;
+    @Prop()
+    fcmToken?: string;
 
     @Prop({ default: true })
     isActive: boolean;
 
     @Prop({ default: false })
     isEmailVerified: boolean;
+    @Prop()
+    emailVerifiedAt?: Date;
 
     createdAt?: Date;
     updatedAt?: Date;

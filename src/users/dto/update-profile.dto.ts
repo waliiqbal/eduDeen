@@ -26,6 +26,5 @@ export class UpdateProfileDto {
     @ApiProperty({ required: false, example: 'https://example.com/profile.jpg' })
     @IsOptional()
     @IsString()
-    @IsUrl()
     profileImage?: string;
 }

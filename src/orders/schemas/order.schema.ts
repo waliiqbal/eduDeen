@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { Address, AddressSchema } from '../../address/schemas/address.schema'
 
 export type OrderDocument = HydratedDocument<Order>;
 
@@ -24,9 +25,9 @@ export class OrderItem {
 
 export const OrderItemSchema = SchemaFactory.createForClass(OrderItem);
 
-// Embedded subdocument for shipping address
 @Schema({ _id: false })
 export class ShippingAddress {
+
     @Prop({ required: true })
     fullName: string;
 
@@ -52,7 +53,9 @@ export class ShippingAddress {
     country: string;
 }
 
-export const ShippingAddressSchema = SchemaFactory.createForClass(ShippingAddress);
+export const ShippingAddressSchema =
+    SchemaFactory.createForClass(ShippingAddress);
+
 
 // Embedded subdocument for payment result
 @Schema({ _id: false })
@@ -76,6 +79,8 @@ export const PaymentResultSchema = SchemaFactory.createForClass(PaymentResult);
 @Schema({ timestamps: true })
 export class Order {
     _id: string;
+
+
 
     @Prop({ type: Types.ObjectId, ref: 'User', required: true })
     user: Types.ObjectId | string;
