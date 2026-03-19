@@ -3,206 +3,216 @@ import {
     NotFoundException,
     BadRequestException,
     ConflictException,
+    UnauthorizedException,
+
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Category, CategoryDocument } from './schemas/category.schema';
+
+import { DatabaseService } from 'src/database/databaseservice';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Injectable()
 export class CategoriesService {
-    constructor(
-        @InjectModel(Category.name)
-        private categoryModel: Model<CategoryDocument>,
+   constructor(private readonly databaseService: DatabaseService) {}
 
-        // Note: Product model will be injected when you create the Product module
-        // @InjectModel(Product.name)
-        // private productModel: Model<ProductDocument>,
-    ) { }
+  async addCategory(sellerId: string ,role: string, createCategoryDto: CreateCategoryDto) {
+    
+       // ADMIN CHECK
+    if (role === 'admin') {
 
-    // Get all active categories
-    async findAll() {
-        try {
-            const categories = await this.categoryModel
-                .find({ isActive: true })
-                .sort('name')
-                .exec();
+      const admin = await this.databaseService.repositories.adminModel.findOne({
+        _id: sellerId,
+        status: 'active',
+        isDelete: false
+      });
 
-            return {
-                success: true,
-                count: categories.length,
-                data: categories,
-            };
-        } catch (error) {
-            throw new BadRequestException('Error fetching categories');
-        }
+      if (!admin) {
+        throw new UnauthorizedException('Unauthorized admin');
+      }
+
     }
 
-    // Get single category by ID
-    async findOne(id: string) {
-        try {
-            const category = await this.categoryModel.findById(id).exec();
+    // SELLER CHECK
+    if (role === 'seller') {
 
-            if (!category) {
-                throw new NotFoundException('Category not found');
-            }
+      const seller = await this.databaseService.repositories.sellerModel.findOne({
+        _id: sellerId,
+        status: 'active',
+        isDelete: false
+      });
 
-            return {
-                success: true,
-                data: category,
-            };
-        } catch (error) {
-            if (error instanceof NotFoundException) {
-                throw error;
-            }
-            throw new BadRequestException('Error fetching category');
-        }
+      if (!seller) {
+        throw new UnauthorizedException('Unauthorized seller');
+      }
+
     }
 
-    // Create new category
-    async create(createCategoryDto: CreateCategoryDto) {
-        try {
-            // Check if category already exists
-            const categoryExists = await this.categoryModel
-                .findOne({ name: createCategoryDto.name })
-                .exec();
 
-            if (categoryExists) {
-                throw new ConflictException('Category already exists');
-            }
 
-            const category = await this.categoryModel.create(createCategoryDto);
+  try {
 
-            return {
-                success: true,
-                message: 'Category created successfully',
-                data: category,
-            };
-        } catch (error) {
-            if (error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Error creating category');
-        }
+    const { name, parentId, image, description, sortOrder } = createCategoryDto;
+
+    const categoryModel = this.databaseService.repositories.categoryModel;
+
+    // check duplicate category
+    const existingCategory = await categoryModel.findOne({ name, status: "active", isDelete: false });
+
+    if (existingCategory) {
+      throw new UnauthorizedException('Category already exists');
     }
 
-    // Update category
-    async update(id: string, updateCategoryDto: UpdateCategoryDto) {
-        try {
-            // If updating name, check for duplicates
-            if (updateCategoryDto.name) {
-                const duplicate = await this.categoryModel
-                    .findOne({
-                        name: updateCategoryDto.name,
-                        _id: { $ne: id } // Exclude current category
-                    })
-                    .exec();
+    const category = await categoryModel.create({
+      name,
+      parentId: parentId,
+      image: image ,
+      description: description,
+      sortOrder: sortOrder || 0
+    });
 
-                if (duplicate) {
-                    throw new ConflictException('Category name already exists');
-                }
-            }
+    return {
+      message: 'Category created successfully',
+      data: category
+    };
 
-            const category = await this.categoryModel
-                .findByIdAndUpdate(id, updateCategoryDto, {
-                    new: true,
-                    runValidators: true,
-                })
-                .exec();
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Failed to create category');
+  }
+}
 
-            if (!category) {
-                throw new NotFoundException('Category not found');
-            }
+// async getChildCategories(parentId: string) {
 
-            return {
-                success: true,
-                message: 'Category updated successfully',
-                data: category,
-            };
-        } catch (error) {
-            if (error instanceof NotFoundException || error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Error updating category');
-        }
+//   const categoryModel = this.databaseService.repositories.categoryModel;
+
+//   const children = await categoryModel.find({ parentId });
+
+//  let ids: string[] = [];
+
+// for (let child of children) {
+
+//   ids.push(child._id.toString());
+
+//   const subChildren = await this.getChildCategories(child._id.toString());
+
+//   ids = ids.concat(subChildren);
+
+// }
+
+//   return ids;
+// }
+
+// async getCategoryTree(categoryId: string) {
+
+//   const categoryModel = this.databaseService.repositories.categoryModel;
+
+//   // parent category
+//   const parentCategory = await categoryModel.findById(categoryId);
+
+//   if (!parentCategory) {
+//     throw new UnauthorizedException('Category not found');
+//   }
+
+//   // saare child ids
+//   const childIds = await this.getChildCategories(categoryId);
+
+//   // parent + child
+//   const allIds = [categoryId, ...childIds];
+
+//   // saari categories ka data
+//   const categories = await categoryModel.find({
+//     _id: { $in: allIds }
+//   });
+
+//   return {
+//     message: "Category tree fetched successfully",
+//     data: categories
+//   };
+// }
+
+async getCategoryTreeNested(categoryId: string) {
+  const categoryModel = this.databaseService.repositories.categoryModel;
+
+  // parent category
+  const category = await categoryModel.findOne({
+    _id: categoryId,
+    status: "active",
+    isDelete: false
+  });
+
+  
+  if (!category) {
+    throw new UnauthorizedException('Category not found');
+  }
+
+  // get children recursively
+  const children = await this.getChildrenRecursive(categoryId);
+
+  return {
+    ...category.toObject(), // convert Mongoose doc to plain object
+    children // nested children array
+  };
+}
+
+private async getChildrenRecursive(parentId: string): Promise<any[]> {
+  const categoryModel = this.databaseService.repositories.categoryModel;
+
+ const children = await categoryModel.find({
+    parentId,
+    status: "active",
+    isDelete: false
+  });
+
+  const result: any[] = []; 
+
+  for (const child of children) {
+    const subChildren = await this.getChildrenRecursive(child._id.toString());
+
+    result.push({
+      ...child.toObject(),
+      children: subChildren // nested inside each child
+    });
+  }
+
+  return result;
+}
+
+
+
+
+async getCategoryWithChildren(categoryId: string): Promise<any> {
+  const categoryModel = this.databaseService.repositories.categoryModel;
+
+  // Parent category (only active & not deleted)
+  const category = await categoryModel.findOne({
+    _id: categoryId,
+    status: "active",
+    isDelete: false
+  });
+
+  if (!category) {
+    throw new NotFoundException('Category not found');
+  }
+
+  // Direct children (only active & not deleted)
+  const children = await categoryModel.find({
+    parentId: categoryId,
+    status: "active",
+    isDelete: false
+  });
+
+  return {
+    message: 'Category with children fetched successfully',
+    data: {
+      category,    // parent category
+      children     // flat array of direct children
     }
+  };
+}
 
-    // Delete category
-    async remove(id: string) {
-        try {
-            // TODO: Uncomment when Product module is ready
-            // Check if category has products
-            // const productsCount = await this.productModel
-            //     .countDocuments({ category: id })
-            //     .exec();
 
-            // if (productsCount > 0) {
-            //     throw new BadRequestException(
-            //         `Cannot delete category. It has ${productsCount} products associated with it.`
-            //     );
-            // }
 
-            const category = await this.categoryModel
-                .findByIdAndDelete(id)
-                .exec();
 
-            if (!category) {
-                throw new NotFoundException('Category not found');
-            }
 
-            return {
-                success: true,
-                message: 'Category deleted successfully',
-            };
-        } catch (error) {
-            if (error instanceof NotFoundException || error instanceof BadRequestException) {
-                throw error;
-            }
-            throw new BadRequestException('Error deleting category');
-        }
-    }
-
-    // Get all categories (including inactive) - Admin only
-    async findAllAdmin() {
-        try {
-            const categories = await this.categoryModel
-                .find()
-                .sort('name')
-                .exec();
-
-            return {
-                success: true,
-                count: categories.length,
-                data: categories,
-            };
-        } catch (error) {
-            throw new BadRequestException('Error fetching categories');
-        }
-    }
-
-    // Toggle category active status - Admin only
-    async toggleActive(id: string) {
-        try {
-            const category = await this.categoryModel.findById(id).exec();
-
-            if (!category) {
-                throw new NotFoundException('Category not found');
-            }
-
-            category.isActive = !category.isActive;
-            await category.save();
-
-            return {
-                success: true,
-                message: `Category ${category.isActive ? 'activated' : 'deactivated'} successfully`,
-                data: category,
-            };
-        } catch (error) {
-            if (error instanceof NotFoundException) {
-                throw error;
-            }
-            throw new BadRequestException('Error toggling category status');
-        }
-    }
 }

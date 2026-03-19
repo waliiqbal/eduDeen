@@ -1,13 +1,11 @@
-
-
 /* eslint-disable prettier/prettier */
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-export type UserDocument = User & Document;
+export type SellerDocument = Seller & Document;
 
 @Schema({ timestamps: true })
-export class User {
+export class Seller {
 
 
  @Prop()
@@ -62,4 +60,4 @@ export class User {
 
 
 
-export const UserSchema = SchemaFactory.createForClass(User);
+export const SellerSchema = SchemaFactory.createForClass(Seller); 

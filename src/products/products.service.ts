@@ -1,395 +1,266 @@
 import {
-    Injectable,
-    NotFoundException,
-    BadRequestException,
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Product, ProductDocument } from './schemas/product.schema';
-import { Category, CategoryDocument } from '../categories/schemas/category.schema';
+
+import { DatabaseService } from 'src/database/databaseservice';
 import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
-import { ProductQueryDto } from './dto/product-query.dto';
+import { CreateProductVariantDto } from './dto/productVariant.dto';
 
 @Injectable()
 export class ProductsService {
-    constructor(
-        @InjectModel(Product.name)
-        private productModel: Model<ProductDocument>,
+  constructor(
+    private databaseService: DatabaseService,
+  ) {}
+async addProduct(
+  sellerId: string,
+  role: string,
+  createProductDto: CreateProductDto
+) {
+  try {
 
-        @InjectModel(Category.name)
-        private categoryModel: Model<CategoryDocument>,
-    ) { }
+    const productModel = this.databaseService.repositories.productModel;
 
-    // Get all products with filters, search, and pagination
-    async findAll(queryDto: ProductQueryDto) {
-        try {
-            const {
-                search,
-                category,
-                minPrice,
-                maxPrice,
-                brand,
-                sort = 'newest',
-                page = 1,
-                limit = 10,
-            } = queryDto;
+    // ADMIN CHECK
+    if (role === 'admin') {
 
-            // Build query
-            const query: any = { isActive: true };
+      const admin = await this.databaseService.repositories.adminModel.findOne({
+        _id: sellerId,
+        status: 'active',
+        isDelete: false
+      });
 
-            // Search by name, description, brand (uses text index)
-            if (search) {
-                query.$text = { $search: search };
-            }
+      if (!admin) {
+        throw new UnauthorizedException('Unauthorized admin');
+      }
 
-            // Filter by category
-            if (category) {
-                query.category = category;
-            }
-
-            // Filter by price range
-            if (minPrice !== undefined || maxPrice !== undefined) {
-                query.price = {};
-                if (minPrice !== undefined) query.price.$gte = minPrice;
-                if (maxPrice !== undefined) query.price.$lte = maxPrice;
-            }
-
-            // Filter by brand
-            if (brand) {
-                query.brand = brand;
-            }
-
-            // Sorting options
-            let sortOption: any = {};
-            switch (sort) {
-                case 'price_asc':
-                    sortOption.price = 1;
-                    break;
-                case 'price_desc':
-                    sortOption.price = -1;
-                    break;
-                case 'rating':
-                    sortOption['ratings.average'] = -1;
-                    break;
-                case 'newest':
-                    sortOption.createdAt = -1;
-                    break;
-                case 'oldest':
-                    sortOption.createdAt = 1;
-                    break;
-                default:
-                    sortOption.createdAt = -1;
-            }
-
-            // Pagination
-            const skip = (page - 1) * limit;
-
-            // Execute query
-            const [products, total] = await Promise.all([
-                this.productModel
-                    .find(query)
-                    .populate('category', 'name')
-                    .sort(sortOption)
-                    .limit(limit)
-                    .skip(skip)
-                    .exec(),
-                this.productModel.countDocuments(query).exec(),
-            ]);
-
-            return {
-                success: true,
-                count: products.length,
-                total,
-                page,
-                pages: Math.ceil(total / limit),
-                data: products,
-            };
-        } catch (error) {
-            throw new BadRequestException('Error fetching products');
-        }
     }
 
-    // Get single product by ID
-    async findOne(id: string) {
-        try {
-            const product = await this.productModel
-                .findById(id)
-                .populate('category', 'name description')
-                .exec();
+    // SELLER CHECK
+    if (role === 'seller') {
 
-            if (!product) {
-                throw new NotFoundException('Product not found');
-            }
+      const seller = await this.databaseService.repositories.sellerModel.findOne({
+        _id: sellerId,
+        status: 'active',
+        isDelete: false
+      });
 
-            return {
-                success: true,
-                data: product,
-            };
-        } catch (error) {
-            if (error instanceof NotFoundException) {
-                throw error;
-            }
-            throw new BadRequestException('Error fetching product');
-        }
+      if (!seller) {
+        throw new UnauthorizedException('Unauthorized seller');
+      }
+
     }
 
-    // Create new product
-    async create(createProductDto: CreateProductDto) {
-        try {
-            // Verify category exists
-            const categoryExists = await this.categoryModel
-                .findById(createProductDto.category)
-                .exec();
+    const {
+      name,
+      slug,
+      description,
+      categoryId,
+      images
+    } = createProductDto;
 
-            if (!categoryExists) {
-                throw new BadRequestException('Category not found');
-            }
+    // check duplicate product for same seller
+    const existingProduct = await productModel.findOne({
+      name,
+      slug,
+      categoryId,
+      sellerId,
+      status: 'active',
+      isDelete: false
+    });
 
-            // Create product
-            const product = await this.productModel.create(createProductDto);
-
-            // Populate category before returning
-            await product.populate('category', 'name');
-
-            return {
-                success: true,
-                message: 'Product created successfully',
-                data: product,
-            };
-        } catch (error) {
-            if (error instanceof BadRequestException) {
-                throw error;
-            }
-            throw new BadRequestException('Error creating product');
-        }
+    if (existingProduct) {
+      throw new BadRequestException('Product already exists');
     }
 
-    // Update product
-    async update(id: string, updateProductDto: UpdateProductDto) {
-        try {
-            // If category is being updated, verify it exists
-            if (updateProductDto.category) {
-                const categoryExists = await this.categoryModel
-                    .findById(updateProductDto.category)
-                    .exec();
+    const product = await productModel.create({
+      name,
+      slug,
+      description: description ,
+      sellerId,
+      categoryId,
+      images: images || []
+    });
 
-                if (!categoryExists) {
-                    throw new BadRequestException('Category not found');
-                }
-            }
+    return {
+      message: 'Product created successfully',
+      data: product
+    };
 
-            const product = await this.productModel
-                .findByIdAndUpdate(id, updateProductDto, {
-                    new: true,
-                    runValidators: true,
-                })
-                .populate('category', 'name')
-                .exec();
+  } catch (error) {
 
-            if (!product) {
-                throw new NotFoundException('Product not found');
-            }
+    throw new BadRequestException(
+      error.message || 'Failed to create product'
+    );
 
-            return {
-                success: true,
-                message: 'Product updated successfully',
-                data: product,
-            };
-        } catch (error) {
-            if (error instanceof NotFoundException || error instanceof BadRequestException) {
-                throw error;
-            }
-            throw new BadRequestException('Error updating product');
-        }
+  }
+}
+
+
+async addProductVariant(
+  sellerId: string,
+  role: string,
+  createProductVariantDto: CreateProductVariantDto
+) {
+
+  try {
+
+    const productModel = this.databaseService.repositories.productModel;
+    const variantModel = this.databaseService.repositories.productVariantModel;
+
+    const {
+      productId,
+      sku,
+      size,
+      color,
+      price,
+      stock,
+      images
+    } = createProductVariantDto;
+
+   
+    const product = await productModel.findOne({
+      _id: productId,
+      status: 'active',
+      isDelete: false
+    });
+
+    if (!product) {
+      throw new BadRequestException('Product not found');
     }
 
-    // Delete product
-    async remove(id: string) {
-        try {
-            const product = await this.productModel.findByIdAndDelete(id).exec();
-
-            if (!product) {
-                throw new NotFoundException('Product not found');
-            }
-
-            return {
-                success: true,
-                message: 'Product deleted successfully',
-            };
-        } catch (error) {
-            if (error instanceof NotFoundException) {
-                throw error;
-            }
-            throw new BadRequestException('Error deleting product');
-        }
+    // seller authorization
+    if (role === 'seller' && product.sellerId.toString() !== sellerId) {
+      throw new UnauthorizedException('Unauthorized seller');
     }
 
-    // Get featured products
-    async findFeatured() {
-        try {
-            const products = await this.productModel
-                .find({ isFeatured: true, isActive: true })
-                .populate('category', 'name')
-                .limit(10)
-                .sort('-createdAt')
-                .exec();
+    // duplicate SKU check
+    const existingVariant = await variantModel.findOne({
+      sku,
+      productId,
+      isDelete: false,
+      status: 'active'
+    });
 
-            return {
-                success: true,
-                count: products.length,
-                data: products,
-            };
-        } catch (error) {
-            throw new BadRequestException('Error fetching featured products');
-        }
+    if (existingVariant) {
+      throw new BadRequestException('Variant with this SKU already exists');
     }
 
-    // Get products by category
-    async findByCategory(categoryId: string, page = 1, limit = 10) {
-        try {
-            // Verify category exists
-            const categoryExists = await this.categoryModel
-                .findById(categoryId)
-                .exec();
+    const variant = await variantModel.create({
+      productId,
+      sku,
+      size: size || null,
+      color: color || null,
+      price,
+      stock: stock || 0,
+      images: images || []
+    });
 
-            if (!categoryExists) {
-                throw new NotFoundException('Category not found');
-            }
+    return {
+      message: 'Product variant created successfully',
+      data: variant
+    };
 
-            const skip = (page - 1) * limit;
+  } catch (error) {
 
-            const [products, total] = await Promise.all([
-                this.productModel
-                    .find({ category: categoryId, isActive: true })
-                    .populate('category', 'name')
-                    .limit(limit)
-                    .skip(skip)
-                    .sort('-createdAt')
-                    .exec(),
-                this.productModel
-                    .countDocuments({ category: categoryId, isActive: true })
-                    .exec(),
-            ]);
+    throw new BadRequestException(
+      error.message || 'Failed to create product variant'
+    );
 
-            return {
-                success: true,
-                count: products.length,
-                total,
-                page,
-                pages: Math.ceil(total / limit),
-                data: products,
-            };
-        } catch (error) {
-            if (error instanceof NotFoundException) {
-                throw error;
-            }
-            throw new BadRequestException('Error fetching products by category');
-        }
+  }
+
+}
+
+
+private async getChildrenRecursiveOnlyId(parentId: string): Promise<string[]> {
+  const categoryModel = this.databaseService.repositories.categoryModel;
+
+  // Initialize array with parentId included
+  let ids: string[] = [parentId]; // 👈 parent id included here
+
+  // Only active & not deleted children
+  const children = await categoryModel.find({
+    parentId,
+    status: "active",
+    isDelete: false
+  });
+
+  for (const child of children) {
+    ids.push(child._id.toString()); // add child id
+
+    // recursively get sub-children ids
+    const subChildIds = await this.getChildrenRecursiveOnlyId(child._id.toString());
+
+    ids = ids.concat(subChildIds); // add all sub-children ids
+  }
+
+  return ids;
+}
+
+async getProductsByCategoryId(
+  parentCategoryId: string,
+  page: number = 1,
+  limit: number = 10
+): Promise<any> {
+
+  const productModel = this.databaseService.repositories.productModel;
+  const productVariantModel = this.databaseService.repositories.productVariantModel;
+
+  // 1️⃣ Get all category IDs (parent + children)
+  const categoryIds = await this.getChildrenRecursiveOnlyId(parentCategoryId);
+
+  // Include parent category ID
+  categoryIds.unshift(parentCategoryId);
+
+  // 2️⃣ Build product query
+  const query: any = {
+    status: "active",
+    isDelete: false,
+    categoryId: { $in: categoryIds }
+  };
+
+  const skip = (page - 1) * limit;
+
+  const total = await productModel.countDocuments(query);
+
+  const products = await productModel.find(query)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  const productIds = products.map(p => p._id.toString());
+
+  // 3️⃣ Get variants for these products
+  const variants = await productVariantModel.find({
+    productId: { $in: productIds },
+    status: "active",
+    isDelete: false
+  }).lean();
+
+  const variantMap: Record<string, any[]> = {};
+  for (const v of variants) {
+    if (!variantMap[v.productId]) variantMap[v.productId] = [];
+    variantMap[v.productId].push(v);
+  }
+
+  const productsWithVariants = products.map(p => ({
+    ...p,
+    variants: variantMap[p._id.toString()] || []
+  }));
+
+  return {
+    message: "Products fetched successfully",
+    data: {
+      total,
+      page,
+      limit,
+      products: productsWithVariants
     }
+  };
+}
 
-    // Get all brands (for filters)
-    async findAllBrands() {
-        try {
-            const brands = await this.productModel
-                .distinct('brand')
-                .where('brand')
-                .ne(null)
-                .ne('')
-                .exec();
 
-            return {
-                success: true,
-                count: brands.length,
-                data: brands.sort(),
-            };
-        } catch (error) {
-            throw new BadRequestException('Error fetching brands');
-        }
-    }
 
-    // Get product statistics (Admin)
-    async getStatistics() {
-        try {
-            const [
-                totalProducts,
-                activeProducts,
-                featuredProducts,
-                outOfStock,
-                lowStock,
-            ] = await Promise.all([
-                this.productModel.countDocuments().exec(),
-                this.productModel.countDocuments({ isActive: true }).exec(),
-                this.productModel.countDocuments({ isFeatured: true }).exec(),
-                this.productModel.countDocuments({ stock: 0 }).exec(),
-                this.productModel.countDocuments({ stock: { $gt: 0, $lte: 10 } }).exec(),
-            ]);
-
-            return {
-                success: true,
-                data: {
-                    totalProducts,
-                    activeProducts,
-                    featuredProducts,
-                    outOfStock,
-                    lowStock,
-                },
-            };
-        } catch (error) {
-            throw new BadRequestException('Error fetching product statistics');
-        }
-    }
-
-    // Toggle featured status (Admin)
-    async toggleFeatured(id: string) {
-        try {
-            const product = await this.productModel.findById(id).exec();
-
-            if (!product) {
-                throw new NotFoundException('Product not found');
-            }
-
-            product.isFeatured = !product.isFeatured;
-            await product.save();
-
-            return {
-                success: true,
-                message: `Product ${product.isFeatured ? 'featured' : 'unfeatured'} successfully`,
-                data: product,
-            };
-        } catch (error) {
-            if (error instanceof NotFoundException) {
-                throw error;
-            }
-            throw new BadRequestException('Error toggling featured status');
-        }
-    }
-
-    // Update stock (Admin)
-    async updateStock(id: string, stock: number) {
-        try {
-            const product = await this.productModel
-                .findByIdAndUpdate(
-                    id,
-                    { stock },
-                    { new: true, runValidators: true },
-                )
-                .exec();
-
-            if (!product) {
-                throw new NotFoundException('Product not found');
-            }
-
-            return {
-                success: true,
-                message: 'Stock updated successfully',
-                data: product,
-            };
-        } catch (error) {
-            if (error instanceof NotFoundException) {
-                throw error;
-            }
-            throw new BadRequestException('Error updating stock');
-        }
-    }
 }

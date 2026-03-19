@@ -1,32 +1,29 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { Types } from 'mongoose';
 
-export type CartDocument = HydratedDocument<Cart> & {
-    updateTotals(): void;
-};
+export type CartDocument = Cart & Document;
+
 // Embedded subdocument for cart items
 @Schema({ _id: false })
 export class CartItem {
-    @Prop({ type: Types.ObjectId, ref: 'Product', required: true })
-    product: Types.ObjectId | String;
 
-    @Prop({ required: true })
-    name: string;
+    @Prop({ type: String, required: true })
+    productId: string;
 
-    @Prop({ required: true, min: 1 })
-    quantity: number;
+    @Prop({ type: String, required: true })
+    productVariantId: string;
 
-    @Prop({ required: true })
-    price: number;
+  @Prop({ required: true })
+  name: string;
 
-    @Prop()
-    image?: string;
+  @Prop({ required: true, min: 1 })
+  quantity: number;
 
-    @Prop()
-    brand?: string;
+  @Prop({ required: true })
+  price: number;
 
-    @Prop({ default: Date.now })
-    addedAt: Date;
+  @Prop()
+  image?: string;
 }
 
 export const CartItemSchema = SchemaFactory.createForClass(CartItem);
@@ -34,50 +31,23 @@ export const CartItemSchema = SchemaFactory.createForClass(CartItem);
 // Main Cart schema
 @Schema({ timestamps: true })
 export class Cart {
-    _id: string;
+  @Prop({ type: String, required: true})
+  userId: string;
 
-    @Prop({ type: Types.ObjectId, ref: 'User', required: true, unique: true })
-    user: Types.ObjectId | string;
+  @Prop({ type: [CartItemSchema], default: [] })
+  items: CartItem[];
 
-    @Prop({ type: [CartItemSchema], default: [] })
-    items: CartItem[];
+  @Prop({ default: 0 })
+  totalItems: number;
 
-    @Prop({ default: 0 })
-    totalItems: number;
+  @Prop({ default: 0 })
+  totalPrice: number;
 
-    @Prop({ default: 0 })
-    totalPrice: number;
+  @Prop({ default: "active" })
+  status: string;
 
-    createdAt?: Date;
-    updatedAt?: Date;
+  @Prop({ default: false })
+  isDelete: boolean;
 }
 
 export const CartSchema = SchemaFactory.createForClass(Cart);
-
-// Index for faster queries
-CartSchema.index({ user: 1 });
-
-// Virtual for calculating totals
-CartSchema.virtual('itemCount').get(function () {
-    return this.items.reduce((sum, item) => sum + item.quantity, 0);
-});
-
-CartSchema.virtual('subtotal').get(function () {
-    return this.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-});
-
-// Method to update totals
-CartSchema.methods.updateTotals = function () {
-    this.totalItems = this.items.reduce((sum, item) => sum + item.quantity, 0);
-    this.totalPrice = this.items.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0,
-    );
-};
-
-// Remove __v from JSON
-CartSchema.methods.toJSON = function () {
-    const obj = this.toObject({ virtuals: true });
-    delete obj.__v;
-    return obj;
-};

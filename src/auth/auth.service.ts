@@ -1,540 +1,382 @@
-import {
-    Injectable,
-    BadRequestException,
-    UnauthorizedException,
-    NotFoundException,
-} from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import * as jwt from 'jsonwebtoken';
-import { User, UserDocument } from '../users/schemas/user.schema';
-import { TokenBlacklist } from './schemas/token-blacklist.schema';
+import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
 import { RegisterDto } from './dto/register.dto';
+import { SocialLoginDto  } from './dto/social-login.dto';
 import { LoginDto } from './dto/login.dto';
-import { OtpService } from '../otp/otp.service';
+import { OtpService } from 'src/otp/otp.service';
+import { DatabaseService } from "src/database/databaseservice";
+import { OAuth2Client } from 'google-auth-library';
+// import axios from 'axios';
+import { stat } from 'fs';
+import { RedisService } from '../redis/redis.service'
 
 @Injectable()
 export class AuthService {
-    constructor(
-        @InjectModel(User.name)
-        private userModel: Model<UserDocument>,
+   private googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID); // 👈 Google Client
+  constructor(
+   
+    private databaseService: DatabaseService,
+      private readonly otpService: OtpService, 
+      private readonly redisService: RedisService,
 
-        @InjectModel(TokenBlacklist.name)
-        private blacklistModel: Model<TokenBlacklist>,
+    private readonly jwtService: JwtService
+  ) {}
 
-        private jwtService: JwtService,
-        private otpService: OtpService,
-    ) { }
 
-    // ============================================================
-    // TOKEN GENERATION
-    // ============================================================
+async signup(RegisterDto: RegisterDto) {
+  try {
+    const { name, email, password, phone , address, role } = RegisterDto;
 
-    generateTokens(user: User) {
-        const payload = { _id: user._id, email: user.email };
+    let userModel;
 
-        const accessToken = this.jwtService.sign(payload, {
-            expiresIn: '7d',
-        });
+    if (role === 'user') {
+      userModel = this.databaseService.repositories.userModel;
+    } else if (role === 'seller') {
+      userModel = this.databaseService.repositories.sellerModel;
+    } else if (role === 'admin') {
+      userModel = this.databaseService.repositories.adminModel;
+    } 
+    
+    else {
+      throw new UnauthorizedException('Invalid user type');
+    }
+ 
+    
 
-        const refreshToken = this.jwtService.sign(payload, {
-            secret: process.env.JWT_REFRESH_SECRET,
-            expiresIn: '7d',
-        });
 
-        return { accessToken, refreshToken };
+    const existingUser = await userModel.findOne({ email });
+    if (existingUser) {
+      throw new UnauthorizedException('User already exists');
     }
 
-    async refreshToken(userId: string) {
-        const user = await this.userModel.findById(userId);
-        if (!user) throw new UnauthorizedException();
+   
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); 
 
-        return this.generateTokens(user);
+ 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    
+    const user = new userModel({
+      name,
+      email,
+      password: hashedPassword,
+      phone,
+      address,
+      role,
+      otp,
+      otpExpiresAt,
+      isVerified: false,
+    });
+
+    await user.save();
+
+    
+    await this.otpService.sendOtp(email, otp);
+    console.log(otp);
+
+    return {
+      message: 'OTP sent successfully',
+      data: {
+        userId: user._id,
+        otp: user.otp, 
+      },
+    };
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Signup failed');
+  }
+}
+
+
+async login(loginDto: LoginDto) {
+  try {
+    const { email, password, role } = loginDto;
+ 
+  let userModel;
+
+    if (role === 'user') {
+      userModel = this.databaseService.repositories.userModel;
+    } else if (role === 'seller') {
+      userModel = this.databaseService.repositories.sellerModel;
+    } else if (role === 'admin') {
+      userModel = this.databaseService.repositories.adminModel;
+    } 
+    
+    else {
+      throw new UnauthorizedException('Invalid user type');
+    }
+ 
+    
+
+
+    const existingUser = await userModel.findOne({ email });
+    if (!existingUser) {
+      throw new UnauthorizedException('Invalid email or password');
     }
 
-    async register(dto: RegisterDto) {
-        try {
-            const { name, email, password, phone, address } = dto;
-
-            // Check if user already exists
-            const userExists = await this.userModel.findOne({ email });
-            if (userExists) {
-                throw new BadRequestException(
-                    'User already exists with this email',
-                );
-            }
-
-            // Create user (password hashing happens in User schema pre-save hook)
-            const user = await this.userModel.create({
-                name,
-                email,
-                password,
-                phone,
-                address,
-                isEmailVerified: false, // Not verified yet
-            });
-
-            // Send OTP for email verification
-            await this.otpService.sendOtp({
-                email: user.email,
-                type: 'email_verification',
-            });
-
-            console.log(`✅ User registered: ${email}`);
-
-            return {
-                success: true,
-                message:
-                    'Registration successful. Please verify your email with the OTP sent.',
-                data: {
-                    id: user._id,
-                    name: user.name,
-                    email: user.email,
-                    isEmailVerified: user.isEmailVerified,
-                },
-            };
-        } catch (error) {
-            if (error instanceof BadRequestException) {
-                throw error;
-            }
-            throw new BadRequestException('Error during registration');
-        }
+  
+    const isPasswordMatch = await bcrypt.compare(password, existingUser.password);
+    if (!isPasswordMatch) {
+      throw new UnauthorizedException('Invalid email or password');
     }
 
-    // ============================================================
-    // VERIFY EMAIL WITH OTP
-    // ============================================================
+    if (!existingUser.isVerified) {
+  throw new UnauthorizedException('Account not verified. Please verify OTP first');
+}
 
-    async verifyEmail(email: string, otp: string) {
-        try {
-            // Find user
-            const user = await this.userModel.findOne({ email }).exec();
+   
+    const payload = {
+      sub: existingUser._id,
+      email: existingUser.email,
+      role: existingUser.role,
+    };
 
-            if (!user) {
-                throw new NotFoundException('User not found');
-            }
+    const token = this.jwtService.sign(payload);
 
-            // Check if already verified
-            if (user.isEmailVerified) {
-                return {
-                    success: true,
-                    message: 'Email already verified',
-                    data: {
-                        user: this.safeUser(user),
-                        isEmailVerified: true,
-                    },
-                };
-            }
 
-            // Verify OTP
-            const otpResult = await this.otpService.verifyOtp({
-                email,
-                otp,
-                type: 'email_verification',
-            });
+    await this.redisService.set(
+      token,
+      existingUser._id.toString(),
+      30 * 60
+    );
+    
 
-            if (!otpResult.success) {
-                throw new UnauthorizedException('Invalid OTP');
-            }
+    return {
+      message: 'Login successful',
+      data: {
+        id: existingUser._id,
+        name: existingUser.name,
+        email: existingUser.email,
+        role: existingUser.role,
+        image: existingUser.profileImage || null,
+        token,
+      },
+    };
 
-            // Update user as verified
-            user.isEmailVerified = true;
-            user.emailVerifiedAt = new Date();
-            await user.save();
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Login failed');
+  }
+}
 
-            console.log(`✅ Email verified: ${email}`);
+async resendOtp(email: string, role: string) {
+  try {
 
-            // Generate tokens
-            const tokens = this.generateTokens(user);
+    let userModel;
 
-            return {
-                success: true,
-                message: 'Email verified successfully',
-                data: {
-                    user: this.safeUser(user),
-                    token: tokens,
-                },
-            };
-        } catch (error) {
-            if (
-                error instanceof NotFoundException ||
-                error instanceof UnauthorizedException
-            ) {
-                throw error;
-            }
-            throw new BadRequestException('Error verifying email');
-        }
+    if (role === 'user') {
+      userModel = this.databaseService.repositories.userModel;
+    } else if (role === 'seller') {
+      userModel = this.databaseService.repositories.sellerModel;
+    } else if (role === 'admin') {
+      userModel = this.databaseService.repositories.adminModel;
+    } 
+    
+    else {
+      throw new UnauthorizedException('Invalid user type');
+    }
+   
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
 
-    // ============================================================
-    // RESEND VERIFICATION OTP
-    // ============================================================
-
-    async resendVerificationOtp(email: string) {
-        try {
-            // Check if user exists
-            const user = await this.userModel.findOne({ email }).exec();
-
-            if (!user) {
-                throw new NotFoundException('User not found');
-            }
-
-            // Check if already verified
-            if (user.isEmailVerified) {
-                throw new BadRequestException('Email already verified');
-            }
-
-            // Resend OTP
-            const result = await this.otpService.resendOtp({
-                email,
-                type: 'email_verification',
-            });
-
-            console.log(`✅ Verification OTP resent: ${email}`);
-
-            return result;
-        } catch (error) {
-            if (
-                error instanceof NotFoundException ||
-                error instanceof BadRequestException
-            ) {
-                throw error;
-            }
-            throw new BadRequestException('Error resending OTP');
-        }
+ 
+    if (user.isVerified) {
+      throw new UnauthorizedException('User already verified');
     }
 
-    // ============================================================
-    // LOGIN (WITH EMAIL VERIFICATION CHECK)
-    // ============================================================
+  
+    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    async login(dto: LoginDto) {
-        try {
-            const user = await this.userModel
-                .findOne({ email: dto.email })
-                .select('+password')
-                .exec();
+    user.otp = newOtp;
+    user.otpExpiresAt = otpExpiresAt;
+    await user.save();
 
-            // Check credentials
-            if (!user || !(await user.comparePassword(dto.password))) {
-                throw new UnauthorizedException('Invalid email or password');
-            }
+    
+    await this.otpService.sendOtp(user.email, newOtp);
 
-            // Check if account is active
-            if (!user.isActive) {
-                throw new UnauthorizedException(
-                    'Your account has been deactivated',
-                );
-            }
+    return {
+      message: 'New OTP sent successfully to your email',
+      data: {
+        userId: user._id,
+        otp: user.otp,
+      },
+    };
 
-            // ✅ Check if email is verified
-            if (!user.isEmailVerified) {
-                // Option 1: Block login until verified (recommended)
-                throw new UnauthorizedException(
-                    'Please verify your email before logging in. Check your inbox for the verification code.',
-                );
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Resend OTP failed');
+  }
+}
 
-                // Option 2: Allow login but require verification later (uncomment if needed)
-                // return {
-                //     success: false,
-                //     message: 'Email not verified. Please verify your email.',
-                //     requiresVerification: true,
-                //     data: {
-                //         email: user.email,
-                //     },
-                // };
-            }
+async verifyOtp(email: string, role: string, otp: string) {
+  try {
 
-            console.log(`✅ User logged in: ${dto.email}`);
+   
+      let userModel;
 
-            // Generate tokens
-            const tokens = this.generateTokens(user);
-
-            return {
-                success: true,
-                message: 'Login successful',
-                data: {
-                    user: this.safeUser(user),
-                    token: tokens,
-                },
-            };
-        } catch (error) {
-            if (error instanceof UnauthorizedException) {
-                throw error;
-            }
-            throw new BadRequestException('Error during login');
-        }
+    if (role === 'user') {
+      userModel = this.databaseService.repositories.userModel;
+    } else if (role === 'seller') {
+      userModel = this.databaseService.repositories.sellerModel;
+    } else if (role === 'admin') {
+      userModel = this.databaseService.repositories.adminModel;
+    } 
+    
+    else {
+      throw new UnauthorizedException('Invalid user type');
+    }
+   
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
 
-    // ============================================================
-    // FORGOT PASSWORD (SEND OTP)
-    // ============================================================
-
-    async forgotPassword(email: string) {
-        try {
-            // Check if user exists
-            const user = await this.userModel.findOne({ email }).exec();
-
-            if (!user) {
-                // Don't reveal if email exists or not (security best practice)
-                return {
-                    success: true,
-                    message:
-                        'If the email exists, a password reset OTP has been sent',
-                    data: { email },
-                };
-            }
-
-            // Send OTP for password reset
-            await this.otpService.sendOtp({
-                email,
-                type: 'password_reset',
-            });
-
-            console.log(`✅ Password reset OTP sent: ${email}`);
-
-            return {
-                success: true,
-                message: 'Password reset OTP sent to your email',
-                data: { email },
-            };
-        } catch (error) {
-            throw new BadRequestException('Error sending password reset OTP');
-        }
+ 
+    if (user.isVerified) {
+      throw new UnauthorizedException('User already verified');
     }
 
-    // ============================================================
-    // RESET PASSWORD (VERIFY OTP + UPDATE PASSWORD)
-    // ============================================================
 
-    async resetPassword(email: string, otp: string, newPassword: string) {
-        try {
-            // Find user
-            const user = await this.userModel.findOne({ email }).exec();
-
-            if (!user) {
-                throw new NotFoundException('User not found');
-            }
-
-            // Verify OTP
-            const otpResult = await this.otpService.verifyOtp({
-                email,
-                otp,
-                type: 'password_reset',
-            });
-
-            if (!otpResult.success) {
-                throw new UnauthorizedException('Invalid or expired OTP');
-            }
-
-            // Update password (hashing happens in pre-save hook)
-            user.password = newPassword;
-            await user.save();
-
-            console.log(`✅ Password reset successful: ${email}`);
-
-            return {
-                success: true,
-                message: 'Password reset successful. You can now login with your new password.',
-                data: { email },
-            };
-        } catch (error) {
-            if (
-                error instanceof NotFoundException ||
-                error instanceof UnauthorizedException
-            ) {
-                throw error;
-            }
-            throw new BadRequestException('Error resetting password');
-        }
+    if (user.otp !== otp) {
+      throw new UnauthorizedException('Invalid OTP');
     }
 
-    // ============================================================
-    // GET ME
-    // ============================================================
-
-    async getMe(userId: string) {
-        const user = await this.userModel.findById(userId);
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
-
-        return {
-            success: true,
-            data: this.safeUser(user),
-        };
+  
+    if (user.otpExpiresAt && new Date() > user.otpExpiresAt) {
+      throw new UnauthorizedException('OTP has expired');
     }
 
-    // ============================================================
-    // LOGOUT (TOKEN BLACKLIST)
-    // ============================================================
+    user.isVerified = true;
+    user.otp = null as any;
+    user.otpExpiresAt = null as any;
+    await user.save();
 
-    async logout(authHeader?: string) {
-        if (authHeader?.startsWith('Bearer ')) {
-            const token = authHeader.split(' ')[1];
+   
+    const payload = { sub: user._id, email: user.email,  role: user.role };
+    const token = this.jwtService.sign(payload, { expiresIn: '1h' });
 
-            try {
-                const decoded: any = jwt.decode(token);
-                if (decoded?.exp) {
-                    await this.blacklistModel.create({
-                        token,
-                        expiresAt: new Date(decoded.exp * 1000),
-                    });
-                }
-            } catch (_) {
-                // Ignore decode errors
-            }
-        }
+    
+    await this.redisService.set(
+      token,
+      user._id.toString(),
+      30 * 60
+    );
 
-        return {
-            success: true,
-            message: 'Logout successful',
-        };
+    return {
+      message: 'OTP verified successfully',
+      data: {
+        token,
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          address: user.address,
+        },
+      },
+    };
+
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'OTP verification failed');
+  }
+}
+
+async forgotPassword(email: string, role: string) {
+  try {
+    let userModel;
+
+    if (role === 'user') {
+      userModel = this.databaseService.repositories.userModel;
+    } else if (role === 'seller') {
+      userModel = this.databaseService.repositories.sellerModel;
+    } else if (role === 'admin') {
+      userModel = this.databaseService.repositories.adminModel;
+    } 
+    
+    else {
+      throw new UnauthorizedException('Invalid user type');
     }
 
-    // ============================================================
-    // OAUTH SUCCESS
-    // ============================================================
-
-    async oauthSuccess(user: any) {
-        if (!user) {
-            throw new UnauthorizedException('Authentication failed');
-        }
-
-        // OAuth users are automatically verified
-        if (!user.isEmailVerified) {
-            user.isEmailVerified = true;
-            user.emailVerifiedAt = new Date();
-            await user.save();
-        }
-
-        const tokens = this.generateTokens(user);
-
-        return {
-            success: true,
-            message: 'OAuth authentication successful',
-            data: {
-                user: this.safeUser(user),
-                token: tokens,
-            },
-        };
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      throw new UnauthorizedException('User not found with this email');
     }
 
-    // ============================================================
-    // HELPER METHODS
-    // ============================================================
+ 
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    private safeUser(user: any) {
-        return {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            profileImage: user.profileImage,
-            isEmailVerified: user.isEmailVerified || false,
-            emailVerifiedAt: user.emailVerifiedAt,
-        };
+   
+    user.otp = otp;
+    user.otpExpiresAt = otpExpiresAt;
+    await user.save();
+
+
+    await this.otpService.sendOtp(user.email, otp);
+
+   
+    return {
+      message: 'OTP sent successfully to your email for password reset',
+      data: {
+        userId: user._id,
+        otp: user.otp,
+      },
+    };
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Forgot password failed');
+  }
+}
+
+async resetPassword(email: string, role: string, otp: string, newPassword: string) {
+  try {
+ let userModel;
+
+    if (role === 'user') {
+      userModel = this.databaseService.repositories.userModel;
+    } else if (role === 'seller') {
+      userModel = this.databaseService.repositories.sellerModel;
+    } else if (role === 'admin') {
+      userModel = this.databaseService.repositories.adminModel;
+    } 
+    
+    else {
+      throw new UnauthorizedException('Invalid user type');
     }
 
-    async socialLogin(dto: {
-        authProvider: string;
-        token?: string;
-        userName: string;
-        email: string;
-        socialId: string;
-        image?: string;
-        fcmToken?: string;
-    }) {
-        try {
-            const { authProvider, userName, email, socialId, image, fcmToken } = dto;
 
-            // Validation
-            if (!socialId) {
-                throw new BadRequestException('socialId is required');
-            }
-
-            // ─── Check if email exists with password (regular signup) ───
-            const userWithPassword = await this.userModel
-                .findOne({ email, password: { $ne: null } })
-                .select('+password')
-                .exec();
-
-            if (userWithPassword) {
-                throw new UnauthorizedException(
-                    'This email is already registered with a password. Please use normal login instead.',
-                );
-            }
-
-            // ─── Find user by provider ID ───
-            let user = await this.userModel
-                .findOne({
-                    [`${authProvider}Id`]: socialId, // googleId, facebookId, or appleId
-                })
-                .exec();
-
-            console.log(`🔍 Social login attempt: ${authProvider} - ${email}`);
-
-            // ─── Create new user if doesn't exist ───
-            if (!user) {
-                const userData: any = {
-                    name: userName,
-                    email,
-                    isEmailVerified: true, // Social logins are pre-verified
-                    emailVerifiedAt: new Date(),
-                    isActive: true,
-                };
-
-                // Set provider-specific ID
-                if (authProvider === 'google') userData.googleId = socialId;
-                else if (authProvider === 'facebook') userData.facebookId = socialId;
-                else if (authProvider === 'apple') userData.appleId = socialId;
-
-                // Optional fields
-                if (image) userData.profileImage = image;
-                if (fcmToken) userData.fcmToken = fcmToken;
-
-                user = await this.userModel.create(userData);
-                console.log(`✅ New ${authProvider} user created: ${email}`);
-            } else {
-                console.log(`✅ Existing ${authProvider} user logged in: ${email}`);
-
-                // Update FCM token if provided and changed
-                if (fcmToken && user.fcmToken !== fcmToken) {
-                    user.fcmToken = fcmToken;
-                    await user.save();
-                    console.log(`🔔 FCM token updated for: ${email}`);
-                }
-            }
-
-            // ─── Check if account is active ───
-            if (!user.isActive) {
-                throw new UnauthorizedException(
-                    'Your account has been deactivated. Please contact support.',
-                );
-            }
-
-            // ─── Generate tokens ───
-            const tokens = this.generateTokens(user);
-
-            return {
-                success: true,
-                message: `${authProvider} login successful`,
-                data: {
-                    user: this.safeUser(user),
-                    token: tokens,
-                },
-            };
-        } catch (error) {
-            console.error(`❌ Social login error:`, error);
-            if (
-                error instanceof BadRequestException ||
-                error instanceof UnauthorizedException
-            ) {
-                throw error;
-            }
-            throw new BadRequestException('Social login failed');
-        }
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
+
+ 
+    if (user.otp !== otp) {
+      throw new UnauthorizedException('Invalid OTP');
+    }
+
+
+    const now = new Date();
+    if (!user.otpExpiresAt || now > user.otpExpiresAt) {
+      throw new UnauthorizedException('OTP has expired');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+    user.otp = null;
+    user.otpExpiresAt = null;
+    await user.save();
+
+    return {
+      message: 'Your password has been changed successfully',
+    };
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Password reset failed');
+  }
+}
 
 }

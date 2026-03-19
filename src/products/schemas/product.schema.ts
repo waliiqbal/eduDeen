@@ -1,106 +1,67 @@
+/* eslint-disable prettier/prettier */
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { Document } from 'mongoose';
 
-export type ProductDocument = HydratedDocument<Product>;
+export type ProductDocument = Product & Document;
 
 @Schema({ timestamps: true })
 export class Product {
-    _id: string;
 
-    @Prop({
-        required: [true, 'Product name is required'],
-        trim: true,
-        maxlength: 100,
-    })
-    name: string;
+  @Prop({ required: true })
+  name: string;
 
-    @Prop({
-        required: [true, 'Product description is required'],
-        maxlength: 1000,
-    })
-    description: string;
+  @Prop({ required: true })
+  sellerId: string;
 
-    @Prop({
-        required: [true, 'Product price is required'],
-        min: 0,
-    })
-    price: number;
+  @Prop({ type: String, unique: true })
+  slug: string;
 
-    @Prop({
-        type: Types.ObjectId,
-        ref: 'Category',
-        required: true,
-    })
-    category: Types.ObjectId | string;
+  @Prop({ type: String,  default: null })
+  description: string | null;
 
-    @Prop({
-        trim: true,
-    })
-    brand?: string;
+  @Prop({ type: String, required: true })
+  categoryId: string;
 
-    @Prop({
-        type: [String],
-        default: [],
-    })
-    images: string[];
+  @Prop({ type: [String], default: [] })
+  images: string[];
 
-    @Prop({
-        default: 0,
-        min: 0,
-    })
-    stock: number;
+  // analytics
+  @Prop({ default: 0 })
+  viewCount: number;
 
-    @Prop({
-        default: false,
-    })
-    isFeatured: boolean;
+  @Prop({ default: 0 })
+  wishlistCount: number;
 
-    @Prop({
-        default: true,
-    })
-    isActive: boolean;
+  @Prop({ default: 0 })
+  purchaseCount: number;
 
-    @Prop({
-        type: {
-            average: {
-                type: Number,
-                default: 0,
-                min: 0,
-                max: 5,
-            },
-            count: {
-                type: Number,
-                default: 0,
-            },
-        },
-        _id: false,
-    })
-    ratings: {
-        average: number;
-        count: number;
-    };
+  @Prop({ default: 0 })
+  averageRating: number;
 
-    createdAt?: Date;
-    updatedAt?: Date;
+  @Prop({ default: 0 })
+  totalRatings: number;
+
+  @Prop({ type: Date, default: null })
+  lastViewedAt: Date | null;
+
+  @Prop({ type: Date, default: null })
+  lastPurchasedAt: Date | null;
+
+  @Prop({  type: Date,default: null })
+  lastWishlistedAt: Date | null;
+
+  @Prop({ enum: ['active', 'inactive'], default: 'active' })
+  status: string;
+
+  @Prop({ default: false })
+  isDelete: boolean;
+
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
-// Text index for search - supports name, description, brand
-ProductSchema.index({ name: 'text', description: 'text', brand: 'text' });
-
-// Additional indexes for performance
-ProductSchema.index({ category: 1 });
-ProductSchema.index({ price: 1 });
-ProductSchema.index({ brand: 1 });
-ProductSchema.index({ isFeatured: 1 });
-ProductSchema.index({ isActive: 1 });
-ProductSchema.index({ 'ratings.average': -1 });
-ProductSchema.index({ createdAt: -1 });
-
-// Remove sensitive fields from JSON
-ProductSchema.methods.toJSON = function () {
-    const obj = this.toObject();
-    delete obj.__v;
-    return obj;
-};
+// indexes
+ProductSchema.index({ name: 1 });
+ProductSchema.index({ categoryId: 1 });
+ProductSchema.index({ purchaseCount: -1 });
+ProductSchema.index({ viewCount: -1 });

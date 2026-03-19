@@ -1,13 +1,12 @@
-
-
 /* eslint-disable prettier/prettier */
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { User } from 'src/users/schemas/user.schema';
 
-export type UserDocument = User & Document;
+export type AdminDocument = Admin & Document;
 
 @Schema({ timestamps: true })
-export class User {
+export class Admin {
 
 
  @Prop()
@@ -16,11 +15,6 @@ export class User {
   @Prop({ required: true, unique: true })
   email: string;
 
-  @Prop({ required: false})
-  providerId: string;
-  
-  @Prop({ required: false  })
-  authProvider: string;
 
   @Prop()
   phone: string;
@@ -62,4 +56,4 @@ export class User {
 
 
 
-export const UserSchema = SchemaFactory.createForClass(User);
+export const AdminSchema = SchemaFactory.createForClass(Admin);

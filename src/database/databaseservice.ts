@@ -9,14 +9,20 @@ export class DatabaseService {
   constructor(
     @InjectModel(schema.User.name)
     private userModel: Model<schema.UserDocument>,
-    @InjectModel(schema.User.name)
+    @InjectModel(schema.Seller.name)
+    private sellerModel: Model<schema.SellerDocument>,
+    @InjectModel(schema.Admin.name)
+    private adminModel: Model<schema.AdminDocument>,
+    @InjectModel(schema.Category.name)
     private categoryModel: Model<schema.CategoryDocument>,
-    @InjectModel(schema.User.name)
+    @InjectModel(schema.Product.name)
     private productModel: Model<schema.ProductDocument>,
+
+      @InjectModel(schema.ProductVariant.name)
+    private productVariantModel: Model<schema.ProductVariantDocument>,
     @InjectModel(schema.User.name)
     private orderModel: Model<schema.OrderDocument>,
-    @InjectModel(schema.User.name)
-    private cartModel: Model<schema.CartDocument>,
+
     @InjectModel(schema.User.name)
     private addressModel: Model<schema.AddressDocument>,
     @InjectModel(schema.User.name)
@@ -27,19 +33,28 @@ export class DatabaseService {
     private faqModel: Model<schema.FaqDocument>,
     @InjectModel(schema.User.name)
     private refundModel: Model<schema.RefundRequestDocument>,
+
+     @InjectModel(schema.Cart.name)
+    private cartModel: Model<schema.CartDocument>,
+
+    
   ) { }
+
   get repositories() {
     return {
       userModel: this.userModel,
+      sellerModel: this.sellerModel,
+      adminModel: this.adminModel,
       categoryModel: this.categoryModel,
       productModel: this.productModel,
+      productVariantModel: this.productVariantModel,
       orderModel: this.orderModel,
-      cartModel: this.cartModel,
       addressModel: this.addressModel,
       otpModel: this.otpModel,
       bannerModel: this.bannerModel,
       faqModel: this.faqModel,
       refundModel: this.refundModel,
+      cartModel: this.cartModel
     };
   }
 }

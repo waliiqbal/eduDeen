@@ -1,12 +1,16 @@
 /* eslint-disable prettier/prettier */
-export { User, UserSchema } from '../users/schemas/user.schema';
-export type { UserDocument } from '../users/schemas/user.schema';
-export type { Category, CategorySchema } from '../categories/schemas/category.schema';
-export type { CategoryDocument } from '../categories/schemas/category.schema';
-export type { Product, ProductSchema } from '../products/schemas/product.schema';
-export type { ProductDocument } from '../products/schemas/product.schema';
-export type { Cart, CartItem, CartSchema, CartItemSchema } from '../cart/schemas/cart.schema';
-export type { CartDocument } from '../cart/schemas/cart.schema';
+
+export { User, UserDocument, UserSchema } from '../users/schemas/user.schema'
+export { Seller, SellerDocument, SellerSchema } from '../seller/seller.schema'
+export { Admin, AdminDocument, AdminSchema } from '../admin/admin.schema'
+export {Category, CategoryDocument, CategorySchema} from '../categories/schemas/category.schema'
+export {Product, ProductDocument, ProductSchema} from '../products/schemas/product.schema'
+export {ProductVariant, ProductVariantDocument, ProductVariantSchema} from '../products/schemas/productVariant.schema'
+export {Cart, CartDocument, CartSchema } from '../cart/schemas/cart.schema'
+
+
+
+
 export type { Order, OrderItemSchema, OrderItem, OrderSchema } from '../orders/schemas/order.schema';
 export type { OrderDocument } from '../orders/schemas/order.schema';
 export type { Address, AddressSchema } from '../address/schemas/address.schema';
