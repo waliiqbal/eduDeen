@@ -137,11 +137,18 @@ async login(loginDto: LoginDto) {
     const token = this.jwtService.sign(payload);
 
 
+
+
     await this.redisService.set(
       token,
       existingUser._id.toString(),
       30 * 60
     );
+
+        // ✅ Refresh Token (long expiry)
+    const refreshToken = this.jwtService.sign(payload, {
+      expiresIn: '7d',
+    });
     
 
     return {
@@ -153,6 +160,7 @@ async login(loginDto: LoginDto) {
         role: existingUser.role,
         image: existingUser.profileImage || null,
         token,
+        refreshToken,
       },
     };
 
@@ -266,10 +274,15 @@ async verifyOtp(email: string, role: string, otp: string) {
       30 * 60
     );
 
+    const refreshToken = this.jwtService.sign(payload, {
+      expiresIn: '7d',
+    });
+
     return {
       message: 'OTP verified successfully',
       data: {
         token,
+        refreshToken,
         user: {
           _id: user._id,
           name: user.name,
