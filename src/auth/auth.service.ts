@@ -379,4 +379,37 @@ async resetPassword(email: string, role: string, otp: string, newPassword: strin
   }
 }
 
+async getProfile(userId: string, role: string) {
+  try {
+    let userModel;
+
+    // 1️⃣ Role ke base pe model select
+    if (role === 'user') {
+      userModel = this.databaseService.repositories.userModel;
+    } else if (role === 'seller') {
+      userModel = this.databaseService.repositories.sellerModel;
+    } else if (role === 'admin') {
+      userModel = this.databaseService.repositories.adminModel;
+    } else {
+      throw new UnauthorizedException('Invalid role');
+    }
+
+    // 2️⃣ User find karo
+    const user = await userModel.findById(userId).select('-password -otp');
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // 3️⃣ Return data
+    return {
+      message: 'Profile fetched successfully',
+      data: user,
+    };
+
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Failed to fetch profile');
+  }
+}
+
 }
