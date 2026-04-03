@@ -80,6 +80,7 @@ async signup(RegisterDto: RegisterDto) {
 
     return {
       message: 'OTP sent successfully',
+       success: true,
       data: {
         userId: user._id,
         otp: user.otp, 
@@ -151,18 +152,23 @@ async login(loginDto: LoginDto) {
     });
     
 
-    return {
-      message: 'Login successful',
-      data: {
-        id: existingUser._id,
-        name: existingUser.name,
-        email: existingUser.email,
-        role: existingUser.role,
-        image: existingUser.profileImage || null,
-        token,
-        refreshToken,
-      },
-    };
+return {
+  message: 'Login successful',
+  success: true, // ye add karna zaroori hai
+  data: {
+    user: {  // ⬅️ user object me rakhna
+      id: existingUser._id,
+      name: existingUser.name,
+      email: existingUser.email,
+      role: existingUser.role,
+      image: existingUser.profileImage || null,
+    },
+    token: {  // ⬅️ token object me rakhna
+      accessToken: token,
+      refreshToken: refreshToken,
+    },
+  },
+};
 
   } catch (error) {
     throw new UnauthorizedException(error.message || 'Login failed');
@@ -209,6 +215,7 @@ async resendOtp(email: string, role: string) {
 
     return {
       message: 'New OTP sent successfully to your email',
+      success: true,
       data: {
         userId: user._id,
         otp: user.otp,
@@ -278,20 +285,24 @@ async verifyOtp(email: string, role: string, otp: string) {
       expiresIn: '7d',
     });
 
-    return {
-      message: 'OTP verified successfully',
-      data: {
-        token,
-        refreshToken,
-        user: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          address: user.address,
-        },
-      },
-    };
+ return {
+  message: 'OTP verified successfully',
+  success: true,
+  data: {
+    user: {  // ✅ user object
+      id: user._id,   // _id ko id me change karna better rahega Dart model ke liye
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      address: user.address,
+    },
+    token: {  // ✅ token object
+      accessToken: token,
+      refreshToken: refreshToken,
+    },
+  },
+};
+  
 
   } catch (error) {
     throw new UnauthorizedException(error.message || 'OTP verification failed');
@@ -334,6 +345,7 @@ async forgotPassword(email: string, role: string) {
    
     return {
       message: 'OTP sent successfully to your email for password reset',
+      success: true,
       data: {
         userId: user._id,
         otp: user.otp,
@@ -386,6 +398,7 @@ async resetPassword(email: string, role: string, otp: string, newPassword: strin
 
     return {
       message: 'Your password has been changed successfully',
+      success: true,
     };
   } catch (error) {
     throw new UnauthorizedException(error.message || 'Password reset failed');
@@ -417,6 +430,7 @@ async getProfile(userId: string, role: string) {
     // 3️⃣ Return data
     return {
       message: 'Profile fetched successfully',
+      success: true,
       data: user,
     };
 
