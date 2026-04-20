@@ -32,8 +32,8 @@ async addCategory( @Req() req: any , @Body() createCategoryDto: CreateCategoryDt
   return this.categoriesService.addCategory(role, sellerId, createCategoryDto);
 }
 
-@Get('category-tree/:id')
-async getCategoryTree(@Param('id') id: string) {
+@Get('category-tree')
+async getCategoryTree(@Query('id') id?: string) {
   return this.categoriesService.getCategoryTreeNested(id);
 }
 
@@ -42,10 +42,7 @@ async getCategoryById(@Param('id') id: string) {
   return this.categoriesService.getCategoryWithChildren(id);
 }
 
-@Get('allCategories')
-async getAllCategories() {
-  return this.categoriesService.getAllCategories();
-}
+
 
 
 }

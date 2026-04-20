@@ -131,30 +131,52 @@ export class CategoriesService {
 //   };
 // }
 
-async getCategoryTreeNested(categoryId: string) {
+async getCategoryTreeNested(categoryId?: string) {
   const categoryModel = this.databaseService.repositories.categoryModel;
 
-  // parent category
-  const category = await categoryModel.findOne({
-    _id: categoryId,
-    status: "active",
-    isDelete: false
-  });
+  // 🔹 CASE 1: agar id di hui hai
+  if (categoryId) {
+    const category = await categoryModel.findOne({
+      _id: categoryId,
+      status: "active",
+      isDelete: false
+    });
 
-  
-  if (!category) {
-    throw new UnauthorizedException('Category not found');
+    if (!category) {
+      throw new UnauthorizedException('Category not found');
+    }
+
+    const children = await this.getChildrenRecursive(categoryId);
+
+    return {
+      ...category.toObject(),
+      children
+    };
   }
 
-  // get children recursively
-  const children = await this.getChildrenRecursive(categoryId);
+  // 🔹 CASE 2: agar id NA ho → sab root categories lao
+ const rootCategories = await categoryModel.find({
+  parentId: null,
+  status: "active",
+  isDelete: false
+}).lean();
 
-  return {
-    ...category.toObject(), // convert Mongoose doc to plain object
-    children // nested children array
-  };
+const result: any[] = [];
+
+for (const cat of rootCategories) {
+  const children = await this.getChildrenRecursive(cat._id.toString());
+
+  result.push({
+    ...cat,
+    children
+  });
 }
 
+  return {
+    message: "All category trees fetched successfully",
+    data: result
+  };
+}
 private async getChildrenRecursive(parentId: string): Promise<any[]> {
   const categoryModel = this.databaseService.repositories.categoryModel;
 
