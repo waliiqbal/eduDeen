@@ -212,6 +212,22 @@ async getCategoryWithChildren(categoryId: string): Promise<any> {
 }
 
 
+async getAllCategories(): Promise<any> {
+  const categoryModel = this.databaseService.repositories.categoryModel;
+
+  // sirf active aur not deleted categories
+  const categories = await categoryModel.find({
+    status: "active",
+    isDelete: false
+  });
+
+  return {
+    message: 'All categories fetched successfully',
+    data: categories
+  };
+}
+
+
 
 
 

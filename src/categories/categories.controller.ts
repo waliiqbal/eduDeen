@@ -42,7 +42,10 @@ async getCategoryById(@Param('id') id: string) {
   return this.categoriesService.getCategoryWithChildren(id);
 }
 
-
+@Get('allCategories')
+async getAllCategories() {
+  return this.categoriesService.getAllCategories();
+}
 
 
 }
