@@ -1,43 +1,62 @@
+/* eslint-disable prettier/prettier */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+// import cookieParser from 'cookie-parser';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // ✅ Global validation
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  
 
-  // ✅ Swagger configuration
+
+  // app.use(cookieParser());
+
+
   const config = new DocumentBuilder()
-    .setTitle('HIFZPRO API')
-    .setDescription('Auth, Users, Products & Orders API')
-    .setVersion('1.0.0')
+    .setTitle('Qchicken API')
+    .setDescription('Qchicken API')
     .addBearerAuth(
       {
+        in: 'Header',
+        scheme: 'Bearer',
+        name: 'Authorization',
         type: 'http',
-        scheme: 'bearer',
         bearerFormat: 'JWT',
       },
-      'access-token',
+      'accessToken',
     )
     .build();
 
+  const whitelist = [
+    'http://localhost:3000',
+    'https://api.edudeen.com',
+
+    
+  ];
+
+  app.enableCors({
+    origin: (origin, cb) => {
+    
+      if (!origin) return cb(null, true);
+      if (whitelist.includes(origin)) return cb(null, true);
+      return cb(new Error('Not allowed by CORS'), false);
+    },
+    credentials: true, // << required if withCredentials on client
+    methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+    allowedHeaders: ['Content-Type','Authorization','X-Requested-With','Accept','Origin'],
+    exposedHeaders: ['Content-Length','X-Request-Id'],
+  });
+
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('api', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
 
-  // ✅ Start server
-  await app.listen(process.env.PORT ?? 3001);
-
-  console.log(`🚀 Server running on http://localhost:${process.env.PORT ?? 3002}`);
-  console.log(`📘 Swagger docs available at /api/docs`);
+  await app.listen(3002, '0.0.0.0');
+  console.log('Server running on http://localhost:3002');
 }
-
 bootstrap();

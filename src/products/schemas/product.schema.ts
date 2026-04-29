@@ -22,8 +22,6 @@ export class Product {
   @Prop({ type: String, required: true })
   categoryId: string;
 
-  @Prop({ type: [String], default: [] })
-  images: string[];
 
   // analytics
   @Prop({ default: 0 })
@@ -38,8 +36,13 @@ export class Product {
   @Prop({ default: 0 })
   averageRating: number;
 
-  @Prop({ default: 0 })
-  totalRatings: number;
+
+
+
+   @Prop({ default: 0 })
+   ratingSum: number;
+ 
+
 
   @Prop({ type: Date, default: null })
   lastViewedAt: Date | null;

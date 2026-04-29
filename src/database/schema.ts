@@ -1,5 +1,7 @@
 /* eslint-disable prettier/prettier */
 
+import e from 'express'
+
 export { User, UserDocument, UserSchema } from '../users/schemas/user.schema'
 export { Seller, SellerDocument, SellerSchema } from '../seller/seller.schema'
 export { Admin, AdminDocument, AdminSchema } from '../admin/admin.schema'
@@ -7,6 +9,8 @@ export {Category, CategoryDocument, CategorySchema} from '../categories/schemas/
 export {Product, ProductDocument, ProductSchema} from '../products/schemas/product.schema'
 export {ProductVariant, ProductVariantDocument, ProductVariantSchema} from '../products/schemas/productVariant.schema'
 export {Cart, CartDocument, CartSchema } from '../cart/schemas/cart.schema'
+export { wishList, wishListDocument, wishListSchema } from '../cart/schemas/wishlist.schema'
+export { Review, ReviewDocument, ReviewSchema } from '../rating/schema/rating.schema';
 
 
 

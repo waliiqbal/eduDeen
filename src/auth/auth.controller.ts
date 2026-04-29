@@ -63,7 +63,7 @@ export class AuthController {
   return this.authService.resetPassword(email, role, otp, newPassword);
 }
 
-@UseGuards(AuthGuard('jwt'))
+  @UseGuards(JwtAuthGuard)
 @Get('getprofile')
 async getProfile( @Req() req: any  ) {
     const {userId , role} = req.user

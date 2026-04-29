@@ -1,19 +1,19 @@
-// import { Module } from '@nestjs/common';
-// import { MongooseModule } from '@nestjs/mongoose';
-// import { CartController } from './cart.controller';
-// import { CartService } from './cart.service';
-// import { Cart, CartSchema } from './schemas/cart.schema';
-// import { Product, ProductSchema } from '../products/schemas/product.schema';
+import { Module } from '@nestjs/common';
+import { CartController } from './cart.controller';
+import { CartService } from './cart.service';
+import { AuthModule } from 'src/auth/auth.module';  
+import { RedisModule } from 'src/redis/redis.module';  
 
-// @Module({
-//     imports: [
-//         MongooseModule.forFeature([
-//             { name: Cart.name, schema: CartSchema },
-//             { name: Product.name, schema: ProductSchema },
-//         ]),
-//     ],
-//     controllers: [CartController],
-//     providers: [CartService],
-//     exports: [CartService, MongooseModule],
-// })
-// export class CartModule { }
+
+
+
+@Module({
+ 
+   imports: [AuthModule, RedisModule], 
+  controllers: [ CartController],
+  providers: [CartService], 
+  exports: [CartService], 
+
+})
+
+export class CartModule {}

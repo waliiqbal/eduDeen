@@ -56,8 +56,7 @@ async addProduct(
       name,
       slug,
       description,
-      categoryId,
-      images
+      categoryId
     } = createProductDto;
 
     // check duplicate product for same seller
@@ -79,8 +78,7 @@ async addProduct(
       slug,
       description: description ,
       sellerId,
-      categoryId,
-      images: images || []
+      categoryId
     });
 
     return {

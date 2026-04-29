@@ -37,6 +37,12 @@ export class DatabaseService {
      @InjectModel(schema.Cart.name)
     private cartModel: Model<schema.CartDocument>,
 
+    @InjectModel(schema.wishList.name)
+    private wishListModel: Model<schema.wishListDocument>,
+
+    @InjectModel(schema.Review.name)
+    private reviewModel: Model<schema.ReviewDocument>,
+
     
   ) { }
 
@@ -54,7 +60,10 @@ export class DatabaseService {
       bannerModel: this.bannerModel,
       faqModel: this.faqModel,
       refundModel: this.refundModel,
-      cartModel: this.cartModel
+      cartModel: this.cartModel,
+      wishListModel: this.wishListModel,
+      reviewModel: this.reviewModel,
+      
     };
   }
 }
