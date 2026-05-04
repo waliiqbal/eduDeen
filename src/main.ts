@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-// import cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 
@@ -11,8 +11,7 @@ async function bootstrap() {
   
 
 
-  // app.use(cookieParser());
-
+  app.use(cookieParser());
 
   const config = new DocumentBuilder()
     .setTitle('Qchicken API')
@@ -31,6 +30,7 @@ async function bootstrap() {
 
   const whitelist = [
     'http://localhost:3000',
+  'http://127.0.0.1:3000',
     'https://api.edudeen.com',
 
     
@@ -41,6 +41,7 @@ async function bootstrap() {
     
       if (!origin) return cb(null, true);
       if (whitelist.includes(origin)) return cb(null, true);
+      console.log('Blocked Origin:', origin);
       return cb(new Error('Not allowed by CORS'), false);
     },
     credentials: true, // << required if withCredentials on client
