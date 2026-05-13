@@ -10,7 +10,7 @@ import { categoryModule } from './categories/categories.module';
 import { ProductsModule } from './products/product.module';
 // import { OrdersModule } from './orders/orders.module';
 import { CartModule } from './cart/cart.module';
-import { AddressesModule } from './address/address.module';
+import { AddressModule } from './address/address.module';
 import { OtpModule } from './otp/otp.module';
 import { UploadModule } from './upload/upload.module';
 import { BannersModule } from './banner/banner.module';
@@ -31,7 +31,7 @@ import { RefundRequestModule } from './refund-request/refund-request.module';
     ProductsModule,
     // OrdersModule,
     CartModule,
-    AddressesModule,
+    AddressModule,
     OtpModule,
     UploadModule,
     BannersModule,

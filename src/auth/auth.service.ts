@@ -140,11 +140,11 @@ async login(loginDto: LoginDto) {
 
 
 
-    await this.redisService.set(
-      token,
-      existingUser._id.toString(),
-      30 * 60
-    );
+   await this.redisService.set(
+  token,
+  existingUser._id.toString(),
+  24 * 60 * 60
+);
 
         // ✅ Refresh Token (long expiry)
     const refreshToken = this.jwtService.sign(payload, {

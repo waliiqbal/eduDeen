@@ -20,11 +20,8 @@ export class DatabaseService {
 
       @InjectModel(schema.ProductVariant.name)
     private productVariantModel: Model<schema.ProductVariantDocument>,
-    @InjectModel(schema.User.name)
-    private orderModel: Model<schema.OrderDocument>,
+ 
 
-    @InjectModel(schema.User.name)
-    private addressModel: Model<schema.AddressDocument>,
     @InjectModel(schema.User.name)
     private otpModel: Model<schema.OtpDocument>,
     @InjectModel(schema.User.name)
@@ -43,6 +40,9 @@ export class DatabaseService {
     @InjectModel(schema.Rating.name)
     private ratingModel: Model<schema.RatingDocument>,
 
+    @InjectModel(schema.Address.name)
+    private addressModel: Model<schema.AddressDocument>,
+
     
   ) { }
 
@@ -54,8 +54,6 @@ export class DatabaseService {
       categoryModel: this.categoryModel,
       productModel: this.productModel,
       productVariantModel: this.productVariantModel,
-      orderModel: this.orderModel,
-      addressModel: this.addressModel,
       otpModel: this.otpModel,
       bannerModel: this.bannerModel,
       faqModel: this.faqModel,
@@ -63,6 +61,7 @@ export class DatabaseService {
       cartModel: this.cartModel,
       wishListModel: this.wishListModel,
       ratingModel: this.ratingModel,
+      addressModel: this.addressModel,
       
     };
   }

@@ -11,15 +11,13 @@ export {ProductVariant, ProductVariantDocument, ProductVariantSchema} from '../p
 export {Cart, CartDocument, CartSchema } from '../cart/schemas/cart.schema'
 export { wishList, wishListDocument, wishListSchema } from '../cart/schemas/wishlist.schema'
 export { Rating, RatingDocument, RatingSchema } from '../rating/schema/rating.schema';
+export { Address, AddressDocument, AddressSchema } from '../address/adress.schema';
 
 
 
 
 
-export type { Order, OrderItemSchema, OrderItem, OrderSchema } from '../orders/schemas/order.schema';
-export type { OrderDocument } from '../orders/schemas/order.schema';
-export type { Address, AddressSchema } from '../address/schemas/address.schema';
-export type { AddressDocument } from '../address/schemas/address.schema';
+
 export type { Otp, OtpSchema } from '../otp/schemas/otp.schema';
 export type { OtpDocument } from '../otp/schemas/otp.schema';
 export type { Banner, BannerSchema } from '../banner/schemas/banner.schema';
