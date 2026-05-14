@@ -32,6 +32,14 @@ async updateCartQuantity(@Req() req: any) {
   return this.cartService.updateCartQuantity(userId, req.body);
 }
 
+@UseGuards(JwtAuthGuard)
+@Post('remove-cart-item')
+async removeCartItem(@Req() req: any) {
+  const { userId } = req.user;
+
+  return this.cartService.removeCartItem(userId, req.body);
+}
+
   @UseGuards(JwtAuthGuard)
 @Post('add-to-wishlist')
 async addToWishlist(@Req() req: any, @Body() body: any) {

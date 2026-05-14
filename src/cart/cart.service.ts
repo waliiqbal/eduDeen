@@ -203,6 +203,50 @@ async getCart(userId: string) {
     );
   }
 }
+
+async removeCartItem(userId: string, requestBody: any) {
+  try {
+    const cartModel = this.databaseService.repositories.cartModel;
+
+    const { productId, productVariantId } = requestBody;
+
+    const cart = await cartModel.findOne({
+      userId,
+      isDelete: false,
+    });
+
+    if (!cart) {
+      throw new BadRequestException('Cart not found');
+    }
+
+    // 1️⃣ find item index
+    const itemIndex = cart.items.findIndex(
+      (item) =>
+        item.productId === productId &&
+        item.productVariantId === productVariantId,
+    );
+
+    if (itemIndex === -1) {
+      throw new BadRequestException('Item not found in cart');
+    }
+
+    // 2️⃣ remove item
+    cart.items.splice(itemIndex, 1);
+
+    // 3️⃣ save cart
+    await cart.save();
+
+    return {
+      message: 'Item removed from cart successfully',
+      data: cart.items, // sirf updated cart items return
+    };
+
+  } catch (error: any) {
+    throw new BadRequestException(
+      error.message || 'Failed to remove item',
+    );
+  }
+}
 async addToWishlist(userId: string, body: any) {
   try {
     const { productId, productVariantId } = body;
