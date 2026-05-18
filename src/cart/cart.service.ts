@@ -311,58 +311,62 @@ async addToWishlist(userId: string, body: any) {
 
 async getWishlist(userId: string) {
   try {
-    const wishlist = await this.databaseService.repositories.wishListModel.aggregate([
-      
-      // 1. match user wishlist
-      {
-        $match: {
-          userId: userId,
-        },
-      },
 
-      // 2. product join (FULL DOCUMENT)
-      {
-        $lookup: {
-          from: 'products',
-          localField: 'productId',
-          foreignField: '_id',
-          as: 'product',
-        },
-      },
+    // 1️⃣ User wishlist lao
+    const wishlist = await this.databaseService.repositories.wishListModel.find({
+      userId: userId,
+    }).sort({ createdAt: -1 });
 
-      {
-        $unwind: {
-          path: '$product',
-          preserveNullAndEmptyArrays: true,
-        },
-      },
+    // Final grouped array
+    const groupedWishlist: any[] = [];
 
-      // 3. variant join (FULL DOCUMENT)
-      {
-        $lookup: {
-          from: 'productvariants',
-          localField: 'productVariantId',
-          foreignField: '_id',
-          as: 'variant',
-        },
-      },
+    // 2️⃣ Loop chalao
+    for (let item of wishlist) {
 
-      {
-        $unwind: {
-          path: '$variant',
-          preserveNullAndEmptyArrays: true,
-        },
-      },
+      // Product find karo
+      const product =
+        await this.databaseService.repositories.productModel.findById(
+          item.productId,
+        );
 
-      // 4. sort latest first
-      {
-        $sort: { createdAt: -1 },
-      },
-    ]);
+      // Variant find karo
+      const variant =
+        await this.databaseService.repositories.productVariantModel.findById(
+          item.productVariantId,
+        );
+
+      // Agar product nahi mila
+      if (!product) {
+        continue;
+      }
+
+      // 3️⃣ Check karo product pehle se groupedWishlist me hai ya nahi
+      const existingProduct = groupedWishlist.find(
+        (data) =>
+          data.product._id.toString() === product._id.toString(),
+      );
+
+      // 4️⃣ Agar product already mojood hai
+      if (existingProduct) {
+
+        // Variant push karo
+        if (variant) {
+          existingProduct.variants.push(variant);
+        }
+
+      } else {
+
+        // 5️⃣ Naya product add karo
+        groupedWishlist.push({
+          product: product,
+          variants: variant ? [variant] : [],
+        });
+      }
+    }
 
     return {
       message: 'Wishlist fetched successfully',
-      data: wishlist,
+      data: groupedWishlist,
     };
 
   } catch (error: any) {

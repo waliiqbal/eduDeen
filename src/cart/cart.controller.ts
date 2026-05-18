@@ -44,6 +44,7 @@ async removeCartItem(@Req() req: any) {
 @Post('add-to-wishlist')
 async addToWishlist(@Req() req: any, @Body() body: any) {
   const { userId } = req.user;
+  
 
   return this.cartService.addToWishlist(userId, body);
 }
@@ -62,6 +63,11 @@ async getWishlistItem(@Req() req: any, @Query() query: any) {
   return this.cartService.getWishlistItem(userId, query);
 }
 
+ 
+   @Post('remove-from-wishlist')
+  async removeFromWishlist(@Body('wishlistId') wishlistId: string) {
+    return await this.cartService.removeFromWishlist(wishlistId);
+  }
 
 
 }
