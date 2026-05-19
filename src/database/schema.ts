@@ -12,6 +12,7 @@ export {Cart, CartDocument, CartSchema } from '../cart/schemas/cart.schema'
 export { wishList, wishListDocument, wishListSchema } from '../cart/schemas/wishlist.schema'
 export { Rating, RatingDocument, RatingSchema } from '../rating/schema/rating.schema';
 export { Address, AddressDocument, AddressSchema } from '../address/adress.schema';
+export { UserPaymentMethod, UserPaymentMethodDocument, UserPaymentMethodSchema } from '../payment/UserPaymentMethod.schema';
 
 
 

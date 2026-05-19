@@ -247,6 +247,40 @@ async removeCartItem(userId: string, requestBody: any) {
     );
   }
 }
+
+async clearCart(userId: string) {
+  try {
+
+    const cartModel = this.databaseService.repositories.cartModel;
+
+    const cart = await cartModel.findOne({
+      userId,
+      isDelete: false,
+    });
+
+    if (!cart) {
+      throw new BadRequestException('Cart not found');
+    }
+
+    // 🗑️ sare cart items remove
+    cart.items = [];
+
+    await cart.save();
+
+    return {
+      message: 'Cart cleared successfully',
+      data: cart.items,
+    };
+
+  } catch (error: any) {
+
+    throw new BadRequestException(
+      error.message || 'Failed to clear cart',
+    );
+
+  }
+}
+
 async addToWishlist(userId: string, body: any) {
   try {
     const { productId, productVariantId } = body;
@@ -451,6 +485,45 @@ async removeFromWishlist(wishlistId: string) {
   } catch (error: any) {
     throw new BadRequestException(
       error.message || 'Failed to remove from wishlist',
+    );
+  }
+}
+
+async clearWishlist(userId: string) {
+  try {
+
+    const wishlistModel = this.databaseService.repositories.wishListModel;
+
+    // 🔍 check if user has any wishlist items
+    const wishlistItems = await wishlistModel.find({ userId });
+
+    if (!wishlistItems.length) {
+      throw new BadRequestException('Wishlist is already empty');
+    }
+
+    // 🗑️ delete all wishlist items of this user
+    await wishlistModel.deleteMany({ userId });
+
+    // 📉 update wishlist count in all related products
+    const productModel = this.databaseService.repositories.productModel;
+
+    for (const item of wishlistItems) {
+      await productModel.findByIdAndUpdate(
+        item.productId,
+        { $inc: { wishlistCount: -1 } },
+      );
+    }
+
+    return {
+      message: 'Wishlist cleared successfully',
+      data: {
+        deletedCount: wishlistItems.length,
+      },
+    };
+
+  } catch (error: any) {
+    throw new BadRequestException(
+      error.message || 'Failed to clear wishlist',
     );
   }
 }

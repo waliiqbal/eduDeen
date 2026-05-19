@@ -40,6 +40,18 @@ async removeCartItem(@Req() req: any) {
   return this.cartService.removeCartItem(userId, req.body);
 }
 
+@UseGuards(JwtAuthGuard)
+@Post('clear-cart')
+async clearCart(@Req() req: any) {
+  const { userId } = req.user;
+
+  return this.cartService.clearCart(userId);
+}
+
+
+
+
+
   @UseGuards(JwtAuthGuard)
 @Post('add-to-wishlist')
 async addToWishlist(@Req() req: any, @Body() body: any) {
@@ -69,6 +81,12 @@ async getWishlistItem(@Req() req: any, @Query() query: any) {
     return await this.cartService.removeFromWishlist(wishlistId);
   }
 
+  @UseGuards(JwtAuthGuard)
+@Post('clear-wishlist')
+async clearWishlist(@Req() req: any) {
+  const { userId } = req.user;
+  return this.cartService.clearWishlist(userId);
+}
 
 }
 

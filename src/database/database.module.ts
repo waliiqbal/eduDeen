@@ -29,6 +29,7 @@ import { DatabaseService } from './databaseservice'
         {name: schema.wishList.name, schema: schema.wishListSchema},
         {name: schema.Rating.name, schema: schema.RatingSchema},
         {name: schema.Address.name, schema: schema.AddressSchema},
+        {name: schema.UserPaymentMethod.name, schema: schema.UserPaymentMethodSchema},
     ]),
   ],
   exports: [MongooseModule, DatabaseService],

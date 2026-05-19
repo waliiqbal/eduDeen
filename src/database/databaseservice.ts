@@ -43,6 +43,9 @@ export class DatabaseService {
     @InjectModel(schema.Address.name)
     private addressModel: Model<schema.AddressDocument>,
 
+    @InjectModel(schema.UserPaymentMethod.name)
+    private userPaymentMethodModel: Model<schema.UserPaymentMethodDocument>,
+
     
   ) { }
 
@@ -62,7 +65,7 @@ export class DatabaseService {
       wishListModel: this.wishListModel,
       ratingModel: this.ratingModel,
       addressModel: this.addressModel,
-      
+      userPaymentMethodModel: this.userPaymentMethodModel,
     };
   }
 }
